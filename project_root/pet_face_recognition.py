@@ -49,10 +49,12 @@ def find_best_match(test_image_path):
                 highest_similarity = sim
                 best_match = name
 
+        similarity_percent = highest_similarity * 100  # Convert to percentage
+
         if highest_similarity >= 0.85:
-            return f"✅ Match found: {best_match} (Similarity: {highest_similarity:.2f})"
+            return f"✅ Match found: {best_match} (Similarity: {similarity_percent:.0f}%)"
         else:
-            return f"❌ No strong match found. Closest: {best_match} (Similarity: {highest_similarity:.2f})"
+            return f"❌ No strong match found. Closest: {best_match} (Similarity: {similarity_percent:.0f}%)"
 
     except Exception as e:
         print("Error inside find_best_match:", e)
