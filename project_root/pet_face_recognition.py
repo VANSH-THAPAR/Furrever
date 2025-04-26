@@ -9,6 +9,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 # Load MobileNetV2 model once
 model = MobileNetV2(weights='imagenet', include_top=False, pooling='avg')
 
+# loads and process image and resize it to 224 X 224 and then pass it through mobilenetv2
 def get_embedding(image_path):
     image = Image.open(image_path).convert("RGB")
     image = image.resize((224, 224))
@@ -26,6 +27,7 @@ def load_known_pet_embeddings():
         known_embeddings = pickle.load(file)
     return known_embeddings
 
+# loops through all the images in known_pets folder and it generated embeddings and then saves them to known_pet_embeddings.plk using pickle
 def save_known_pet_embeddings(known_pets_folder='known_pets'):
     known_embeddings = []
     for pet_image_name in os.listdir(known_pets_folder):
@@ -35,6 +37,8 @@ def save_known_pet_embeddings(known_pets_folder='known_pets'):
     with open('known_pet_embeddings.pkl', 'wb') as file:
         pickle.dump(known_embeddings, file)
 
+
+# it basically loads embeddings of known pets , gets the embeddings of the new lost pets compares with cosine similarity and shown the best result with threshold of 85 %
 def find_best_match(test_image_path):
     try:
         known_embeddings = load_known_pet_embeddings()

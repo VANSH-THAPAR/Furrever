@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-
-mapboxgl.accessToken = 'YOUR_MAPBOX_ACCESS_TOKEN'; // Replace with your token
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 const Vaccination = () => {
   const [location, setLocation] = useState('');
@@ -12,23 +10,25 @@ const Vaccination = () => {
   const mapRef = useRef(null);
   const markersRef = useRef([]);
 
-  const initializeMap = (center) => {
-    if (mapRef.current) {
-      mapRef.current.setCenter(center);
-      mapRef.current.zoomTo(13);
-      return;
+  useEffect(() => {
+    if (!mapRef.current) {
+      mapRef.current = L.map(mapContainerRef.current).setView([20.5937, 78.9629], 5); // Center on India
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }).addTo(mapRef.current);
     }
 
-    mapRef.current = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: 'mapbox://styles/mapbox/streets-v11',
-      center,
-      zoom: 13,
-    });
-  };
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
 
   const clearMarkers = () => {
-    markersRef.current.forEach((marker) => marker.remove());
+    markersRef.current.forEach((marker) => mapRef.current.removeLayer(marker));
     markersRef.current = [];
   };
 
@@ -41,18 +41,18 @@ const Vaccination = () => {
 
     try {
       const geoRes = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(location)}.json?access_token=${mapboxgl.accessToken}`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}`
       );
       const geoData = await geoRes.json();
 
-      if (!geoData.features.length) {
+      if (!geoData.length) {
         setError('Location not found. Try a different one.');
         setLoading(false);
         return;
       }
 
-      const [lon, lat] = geoData.features[0].center;
-      initializeMap([lon, lat]);
+      const { lat, lon } = geoData[0];
+      mapRef.current.setView([lat, lon], 13);
 
       const query = `
         [out:json];
@@ -67,9 +67,7 @@ const Vaccination = () => {
         `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`
       );
 
-      if (!response.ok) {
-        throw new Error('Overpass API failed');
-      }
+      if (!response.ok) throw new Error('Overpass API failed');
 
       const data = await response.json();
 
@@ -79,18 +77,14 @@ const Vaccination = () => {
       }
 
       data.elements.forEach((place) => {
-        const position = place.type === 'node'
-          ? [place.lon, place.lat]
-          : [place.center.lon, place.center.lat];
+        const position =
+          place.type === 'node'
+            ? [place.lat, place.lon]
+            : [place.center.lat, place.center.lon];
 
-        const marker = new mapboxgl.Marker()
-          .setLngLat(position)
-          .setPopup(
-            new mapboxgl.Popup().setHTML(
-              `<strong>${place.tags.name || 'Unnamed Clinic'}</strong>`
-            )
-          )
-          .addTo(mapRef.current);
+        const marker = L.marker(position)
+          .addTo(mapRef.current)
+          .bindPopup(`<strong>${place.tags.name || 'Unnamed Clinic'}</strong>`);
 
         markersRef.current.push(marker);
       });
